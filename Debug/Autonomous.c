@@ -10,13 +10,12 @@
 #define Pi 3.14
 
 int tickGoal;
-int ticks;
 
 //Drive Forward with Target in Inches
 void driveForward(float target)
 {
 	float wheelCircumference = wheelDiameter*Pi;
-	ticks = 360/wheelCircumference;
+	int ticks = 360/wheelCircumference;
 	tickGoal = ticks * target;
 
 	resetMotorEncoder(leftMotor);
