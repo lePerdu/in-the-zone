@@ -9,9 +9,61 @@
 #define wheelDiameter 4
 #define Pi 3.14
 
-int tickGoal;
+#define abs(X) ((X < 0) ? -1 * X : X)
+#define MAX_POWER_OUT										127
+#define MIN_POWER_OUT								  	-127
 
-//Drive Forward with Target in Inches
+int tickGoal;
+int driveCoeff = 0.5;
+
+int limitMotorPower(int power)																														//
+{																																													//
+	int	outputPower;																																				//
+																																													//
+	outputPower = power;																																		//
+	if(outputPower > MAX_POWER_OUT)																													//
+	{																																												//
+		outputPower = MAX_POWER_OUT;																													//
+	}																																												//
+	else if(outputPower < MIN_POWER_OUT)																										//
+	{																																												//
+		outputPower = MIN_POWER_OUT;																													//
+	}																																												//
+	return(outputPower);																																		//
+}
+
+void driveForwardP(int tenthsOfIn)
+{
+	SensorValue[leftEncoder] = 0; // It is good practice to reset encoder values at the start of a function.
+	SensorValue[rightEncoder] = 0;
+
+	float wheelCircumference = wheelDiameter*Pi;
+	int ticks = 360/wheelCircumference;
+	int tickGoal = (ticks * tenthsOfIn) / 10;
+
+	int leftError;
+	int leftPower;
+
+	int rightError;
+	int rightPower;
+	while((abs(SensorValue[leftEncoder]) < tickGoal)||(abs(SensorValue[leftEncoder]) < tickGoal))
+	{
+		leftError = (tickGoal - SensorValue[leftEncoder]);
+		leftPower = (leftError * driveCoeff);
+		leftPower = limitMotorPower(leftPower);
+		motor[leftMotor] = leftPower;
+
+		rightError = (tickGoal - SensorValue[rightEncoder]);
+		rightPower = (rightError * driveCoeff);
+		rightPower = limitMotorPower(rightPower);
+		motor[rightMotor] = rightPower;
+	}
+
+	motor[leftMotor] = 0;  // stop motors
+	motor[rightMotor] = 0;
+}
+
+//Drive Forward with Target in Inches (Built in PID)
 void driveForward(float target)
 {
 	float wheelCircumference = wheelDiameter*Pi;
