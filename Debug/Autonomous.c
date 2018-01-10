@@ -16,10 +16,11 @@
 int tickGoal;
 int driveCoeff = 0.5;
 
+//Ensure Motor Power is in Range
 int limitMotorPower(int power)																														//
 {																																													//
 	int	outputPower;																																				//
-																																													//
+	//
 	outputPower = power;																																		//
 	if(outputPower > MAX_POWER_OUT)																													//
 	{																																												//
@@ -32,6 +33,7 @@ int limitMotorPower(int power)																														//
 	return(outputPower);																																		//
 }
 
+//Drive Forward with Target in Inches (Custom P Control)
 void driveForwardP(int tenthsOfIn)
 {
 	SensorValue[leftEncoder] = 0; // It is good practice to reset encoder values at the start of a function.
@@ -39,7 +41,7 @@ void driveForwardP(int tenthsOfIn)
 
 	float wheelCircumference = wheelDiameter*Pi;
 	int ticks = 360/wheelCircumference;
-	int tickGoal = (ticks * tenthsOfIn) / 10;
+	tickGoal = (ticks * tenthsOfIn) / 10;
 
 	int leftError;
 	int leftPower;
@@ -61,14 +63,16 @@ void driveForwardP(int tenthsOfIn)
 
 	motor[leftMotor] = 0;  // stop motors
 	motor[rightMotor] = 0;
+
+	wait1Msec(500); // used to read final encoder values on screen before ending program
 }
 
 //Drive Forward with Target in Inches (Built in PID)
-void driveForward(float target)
+void driveForward(int tenthsOfIn)
 {
 	float wheelCircumference = wheelDiameter*Pi;
 	int ticks = 360/wheelCircumference;
-	tickGoal = ticks * target;
+	tickGoal = (ticks * tenthsOfIn) / 10;
 
 	resetMotorEncoder(leftMotor);
 	resetMotorEncoder(rightMotor);
@@ -86,11 +90,12 @@ void driveForward(float target)
 	motor[leftMotor] = 0;  // stop motors
 	motor[rightMotor] = 0;
 
-	wait1Msec(2000); // used to read final encoder values on screen before ending program
+	wait1Msec(500); // used to read final encoder values on screen before ending program
 }
 
 task main()
 {
-	driveForward(10);
+	driveForward(100);
+	//driveForwardP(100);
 	wait1Msec(100);
 }
