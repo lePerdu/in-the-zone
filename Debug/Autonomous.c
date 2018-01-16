@@ -16,6 +16,14 @@
 int tickGoal=0;
 int error;
 
+void stopMotors ()
+{
+	motor[leftMotorF] = 0;
+	motor[leftMotorR] = 0;
+	motor[rightMotorF] = 0;
+	motor[rightMotorR] = 0;
+}
+
 void moveBase (int speed)
 {
 	motor[leftMotorF] = speed;
@@ -228,7 +236,11 @@ task main ()
 {
 	SensorValue[gyro]=0;
 	wait1Msec(500);
-	PIDBaseControl(100,0,0.7); // move forward 10 inches with 0 sec delay;
-	//PIDBaseTurn(90,0,1); // turn left 90 degrees with 0 sec delay;
-
+	PIDBaseControl(300,0,.6); // move forward 10 inches with 0 sec delay;
+	wait1Msec(500);
+	PIDBaseTurn(-90,0,0.6); // turn left 90 degrees with 0 sec delay;
+	wait1Msec(500);
+	PIDBaseControl(10,0,0.6); // move forward 10 inches with 0 sec delay;
+	wait1Msec(500);
+	stopMotors();
 }
