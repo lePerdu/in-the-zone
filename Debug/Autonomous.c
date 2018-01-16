@@ -13,120 +13,222 @@
 #define wheelDiameter 4
 #define Pi 3.14
 
-#define abs(X) ((X < 0) ? -1 * X : X)
-#define MAX_POWER_OUT										127
-#define MIN_POWER_OUT								  	-127
+int tickGoal=0;
+int error;
 
-int tickGoal;
-float driveCoeff = 0.25;
-
-int leftError=-100;
-int rightError=100;
-
-//Ensure Motor Power is in Range
-int limitMotorPower(int power,int maxPower)																								//
-{																																													//
-	int	outputPower;																																				//
-	//
-	outputPower = power;																																		//
-	if(outputPower > maxPower)																												     	//
-	{																																												//
-		outputPower = maxPower;																													      //
-	}																																												//
-	else if(outputPower < (maxPower*-1))																										//
-	{																																												//
-		outputPower = (maxPower*-1);																													//
-	}																																												//
-	return(outputPower);																																		//
+void moveBase (int speed)
+{
+	motor[leftMotorF] = speed;
+	motor[leftMotorR] = speed;
+	motor[rightMotorF] = speed;
+	motor[rightMotorR] = speed;
 }
 
-//Drive Forward with Target in Inches (Custom P Control)
-void driveForwardP(int tenthsOfIn,int maxPower)
+void moveRightBase (int speed)
 {
-	SensorValue[BLEncoder] = 0; // It is good practice to reset encoder values at the start of a function.
-	SensorValue[BREncoder] = 0;
+	motor[rightMotorF] = speed;
+	motor[rightMotorR] = speed;
+}
 
+void moveLeftBase (int speed)
+{
+	motor[leftMotorF] = speed;
+	motor[leftMotorR] = speed;
+}
+
+void turnBase (int speed) // positive is clockwise
+{
+	motor[leftMotorF] = speed;
+	motor[leftMotorR] = speed;
+	motor[rightMotorF] = -speed;
+	motor[rightMotorR] = -speed;
+}
+
+int inchToTicks (float inch)
+{
 	float wheelCircumference = wheelDiameter*Pi;
 	int ticks = 360/wheelCircumference;
-	tickGoal = (ticks * tenthsOfIn) / 10;
+	tickGoal = (ticks * inch) / 10;
+	return tickGoal;
+}
 
-	int leftPower;
-	int rightPower;
-
-	while((abs(leftError) > 1)||((abs(rightError) > 1)))
+int fixTimerValue (float rawSeconds)
+{
+	int miliseconds;
+	miliseconds = rawSeconds*1000;
+	if (miliseconds < 250)
 	{
-		leftError = (tickGoal - SensorValue[BLEncoder]);
-		leftPower = (leftError * driveCoeff);
-		leftPower = limitMotorPower(leftPower,maxPower);
-		motor[leftMotorF] = leftPower;
-		motor[leftMotorR] = leftPower;
-
-		rightError = (tickGoal - SensorValue[BREncoder]);
-		rightPower = (rightError * driveCoeff);
-		rightPower = limitMotorPower(rightPower,maxPower);
-		motor[rightMotorF] = rightPower;
-		motor[rightMotorR] = rightPower;
-
+		miliseconds = 250;
 	}
-
-	motor[leftMotorF] = 0;  // stop motors
-	motor[leftMotorR] = 0;
-	motor[rightMotorF] = 0;
-	motor[rightMotorR] = 0;
-
-	wait1Msec(500); // used to read final encoder values on screen before ending program
+	return miliseconds;
 }
 
-void driveStraightDistance(int tenthsOfIn, int masterPower)
+//>>>>>>>>>>>>>>>>>>>>>>>>------------------0-----------------<<<<<<<<<<<<<<<<<<<<<<<<<
+
+void PIDBaseControl (float target, float waitTime, float maxPower = 1)
 {
-	float wheelCircumference = wheelDiameter*Pi;
-	int ticks = 360/wheelCircumference;
-	int tickGoal = (ticks * tenthsOfIn) / 10;
+	float Kp = 0.3;
+	float Ki = 0.01;
+	float Kd = 0.01;
 
-	//This will count up the total encoder ticks despite the fact that the encoders are constantly reset.
-	int totalTicks = 0;
+	float proportion;
+	int integralRaw;
+	float integral;
+	int lastError;
+	int derivative;
 
-	//Initialise slavePower as masterPower - 5 so we don't get huge error for the first few iterations. The
-	//-5 value is based off a rough guess of how much the motors are different, which prevents the robot from
-	//veering off course at the start of the function.
-	int slavePower = masterPower - 5;
+	float integralActiveZone = inchToTicks(3);
+	float integralPowerLimit = 50/Ki;
 
-	int error = 0;
+	int finalPower;
 
-	int kp = 10;
+	float Kp_C = 0.01;
+	int error_drift;
+	float proportion_drift;
 
 	SensorValue[BLEncoder] = 0;
 	SensorValue[BREncoder] = 0;
 
-	//Monitor 'totalTicks', instead of the values of the encoders which are constantly reset.
-	while(abs(totalTicks) < tickGoal)
+	error = 50;
+
+	while (abs(error)>2)
 	{
-		//Proportional algorithm to keep the robot going straight.
-		motor[leftMotorF] = masterPower;
-		motor[leftMotorR] = masterPower;
-		motor[rightMotorF] = slavePower;
-		motor[rightMotorR] = slavePower;
-		error = SensorValue[BLEncoder] - SensorValue[BREncoder];
+		error = inchToTicks(target)-(SensorValue[BLEncoder]);
 
-		slavePower += error / kp;
+		proportion = Kp*error;
 
-		SensorValue[BLEncoder] = 0;
-		SensorValue[BREncoder] = 0;
+		if (abs(error) < integralActiveZone && error != 0)
+		{
+			integralRaw = integralRaw+error;
+		}
+		else
+		{
+			integralRaw = 0;
+		}
 
-		wait1Msec(100);
+		if (integralRaw > integralPowerLimit)
+		{
+			integralRaw = integralPowerLimit;
+		}
+		if (integralRaw < -integralPowerLimit)
+		{
+			integralRaw = -integralPowerLimit;
+		}
 
-		//Add this iteration's encoder values to totalTicks.
-		totalTicks+= SensorValue[BLEncoder];
+		integral = Ki*integralRaw;
+
+		derivative = Kd*(error-lastError);
+		lastError = error;
+
+		if (error == 0)
+		{
+			derivative = 0;
+		}
+
+		finalPower = proportion+integral+derivative; //proportion+derivative+integral
+
+		if (finalPower > maxPower*127)
+		{
+			finalPower = maxPower*127;
+		}
+		else if (finalPower < -maxPower*127)
+		{
+			finalPower = -maxPower*127;
+		}
+		error_drift = SensorValue[BREncoder]-SensorValue[BLEncoder];
+		proportion_drift = Kp_C*error_drift;
+
+		moveLeftBase(finalPower+proportion_drift);
+		moveRightBase(finalPower-proportion_drift);
+
+		wait1Msec(40);
 	}
-	motor[leftMotorF] = 0; // Stop the loop once the encoders have counted up the correct number of encoder ticks.
-	motor[leftMotorR] = 0;
-	motor[rightMotorF] = 0;
-	motor[rightMotorR] = 0;
+	moveBase(0);
 }
 
-task main()
+void PIDBaseTurn (float target, float waitTime, float maxPower = 1)
 {
-	//driveStraightDistance(100,50);
-	driveForwardP(100,50);
-	wait1Msec(100);
+	target = target*10;
+
+	float Kp = 0.08;
+	float Ki = 0.01;
+	float Kd = 0.01;
+
+	float proportion;
+	int integralRaw;
+	float integral;
+	int lastError;
+	int derivative;
+
+	float integralActiveZone = inchToTicks(3);
+	float integralPowerLimit = 50/Ki;
+
+	int finalPower;
+
+	SensorValue[rightMotorR] = 0;
+	SensorValue[leftMotorR] = 0;
+	SensorValue[rightMotorF] = 0;
+	SensorValue[leftMotorF] = 0;
+
+	error = 10;
+
+	while (abs(error)>3)
+	{
+		error = target-SensorValue[gyro];
+
+		proportion = Kp*error;
+
+		if (abs(error) < integralActiveZone && error != 0)
+		{
+			integralRaw = integralRaw+error;
+		}
+		else
+		{
+			integralRaw = 0;
+		}
+
+		if (integralRaw > integralPowerLimit)
+		{
+			integralRaw = integralPowerLimit;
+		}
+		if (integralRaw < -integralPowerLimit)
+		{
+			integralRaw = -integralPowerLimit;
+		}
+
+		integral = Ki*integralRaw;
+
+		derivative = Kd*(error-lastError);
+		lastError = error;
+
+		if (error == 0)
+		{
+			derivative = 0;
+		}
+
+		finalPower = proportion+integral+derivative; //proportion+derivative+integral
+
+		if (finalPower > maxPower*127)
+		{
+			finalPower = maxPower*127;
+		}
+		else if (finalPower < -maxPower*127)
+		{
+			finalPower = -maxPower*127;
+		}
+
+		turnBase(finalPower);
+
+		wait1Msec(40);
+	}
+	turnBase(0);
+}
+
+task main ()
+{
+	SensorValue[gyro]=0;
+	wait1Msec(500);
+	PIDBaseControl(100,0,0.7); // move forward 10 inches with 0 sec delay;
+	//PIDBaseTurn(90,0,1); // turn left 90 degrees with 0 sec delay;
+
 }

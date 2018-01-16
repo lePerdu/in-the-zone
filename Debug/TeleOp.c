@@ -19,12 +19,11 @@
 task hDrive(){
 	while (true)
 	{
-		//Send Left Axis to Left Motors
-		motor[leftMotorF] = C1LY;
-		motor[leftMotorR] = C1LY;
-		//Send Right Axis to Right Motors
-		motor[rightMotorF] = C1RY;
-		motor[rightMotorR] = C1RY;
+		motor[leftMotorF]  = (C1LY - C1RX)*.8;
+    motor[rightMotorF] = (C1LY + C1RX)*.8;
+    motor[leftMotorR]  = (C1LY - C1RX)*.8;
+    motor[rightMotorR] = (C1LY + C1RX)*.8;
+
 		//Center Wheel Control
 		motor[hMotor1] = (vexRT[Btn5U] - vexRT[Btn6U])*127;
 		motor[hMotor2] = (vexRT[Btn5U] - vexRT[Btn6U])*127;
