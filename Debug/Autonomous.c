@@ -1,7 +1,6 @@
-#pragma config(Sensor, dgtl1,  FLEncoder,      sensorQuadEncoder)
-#pragma config(Sensor, dgtl3,  BLEncoder,      sensorQuadEncoder)
-#pragma config(Sensor, dgtl5,  FREncoder,      sensorQuadEncoder)
-#pragma config(Sensor, dgtl7,  BREncoder,      sensorQuadEncoder)
+#pragma config(Sensor, in1,    gyro,           sensorGyro)
+#pragma config(Sensor, dgtl1,  BLEncoder,      sensorQuadEncoder)
+#pragma config(Sensor, dgtl3,  BREncoder,      sensorQuadEncoder)
 #pragma config(Motor,  port2,           leftMotorF,    tmotorVex393_MC29, openLoop)
 #pragma config(Motor,  port3,           leftMotorR,    tmotorVex393_MC29, openLoop)
 #pragma config(Motor,  port4,           rightMotorF,   tmotorVex393_MC29, openLoop, reversed)
@@ -19,7 +18,10 @@
 #define MIN_POWER_OUT								  	-127
 
 int tickGoal;
-float driveCoeff = 0.5;
+float driveCoeff = 0.25;
+
+int leftError=-100;
+int rightError=100;
 
 //Ensure Motor Power is in Range
 int limitMotorPower(int power,int maxPower)																								//
@@ -43,20 +45,15 @@ void driveForwardP(int tenthsOfIn,int maxPower)
 {
 	SensorValue[BLEncoder] = 0; // It is good practice to reset encoder values at the start of a function.
 	SensorValue[BREncoder] = 0;
-	SensorValue[FLEncoder] = 0; // It is good practice to reset encoder values at the start of a function.
-	SensorValue[FREncoder] = 0;
 
 	float wheelCircumference = wheelDiameter*Pi;
 	int ticks = 360/wheelCircumference;
 	tickGoal = (ticks * tenthsOfIn) / 10;
 
-	int leftError;
 	int leftPower;
-
-	int rightError;
 	int rightPower;
 
-	while((abs(SensorValue[BLEncoder]) < tickGoal)||(abs(SensorValue[BREncoder]) < tickGoal))
+	while((abs(leftError) > 1)||((abs(rightError) > 1)))
 	{
 		leftError = (tickGoal - SensorValue[BLEncoder]);
 		leftPower = (leftError * driveCoeff);
@@ -100,8 +97,6 @@ void driveStraightDistance(int tenthsOfIn, int masterPower)
 
 	SensorValue[BLEncoder] = 0;
 	SensorValue[BREncoder] = 0;
-	SensorValue[FLEncoder] = 0;
-	SensorValue[FREncoder] = 0;
 
 	//Monitor 'totalTicks', instead of the values of the encoders which are constantly reset.
 	while(abs(totalTicks) < tickGoal)
@@ -117,18 +112,16 @@ void driveStraightDistance(int tenthsOfIn, int masterPower)
 
 		SensorValue[BLEncoder] = 0;
 		SensorValue[BREncoder] = 0;
-		SensorValue[FLEncoder] = 0;
-		SensorValue[FREncoder] = 0;
 
 		wait1Msec(100);
 
 		//Add this iteration's encoder values to totalTicks.
 		totalTicks+= SensorValue[BLEncoder];
 	}
-		motor[leftMotorF] = 0; // Stop the loop once the encoders have counted up the correct number of encoder ticks.
-		motor[leftMotorR] = 0;
-		motor[rightMotorF] = 0;
-		motor[rightMotorR] = 0;
+	motor[leftMotorF] = 0; // Stop the loop once the encoders have counted up the correct number of encoder ticks.
+	motor[leftMotorR] = 0;
+	motor[rightMotorF] = 0;
+	motor[rightMotorR] = 0;
 }
 
 task main()
